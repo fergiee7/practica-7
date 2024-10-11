@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 // crear estructura
@@ -15,21 +17,46 @@ type User struct {
 	Email string `json:"email"`
 }
 
-func main() {
-	router := gin.Default()
-	users := []User{} //cambiar para usar base de
-	indexUser := 1
+// Definiendo variable para la base de datos
+var db *gorm.DB
 
-	fmt.Println("Running App")
+func main() {
+
+	//Creando conexion con tabla
+	dsn := "root:test@tcp(127.0.0.1:3306)/practica7?charset=utf8mb4&parseTime=True&loc=Local"
+	var err error
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		fmt.Println("Error al conectar a la base de datos:", err)
+		return
+	}
+
+	//creando tabla si no existe
+	db.AutoMigrate(&User{})
+
+	fmt.Println("Conexión exitosa y tabla creada o actualizada.")
+
+	router := gin.Default()
+	//users := []User{} //cambiar para usar base de
+	//indexUser := 1
+
+	//fmt.Println("Running App")
 
 	//Tomar archivos de la carpeta template
 	router.LoadHTMLGlob("templates/*")
+
+	//revisar si está corriendo el servidor
 	router.GET("/ping", func(c *gin.Context) { //se define una url
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
 	})
+
+	//Entrando a la pagina
 	router.GET("/", func(c *gin.Context) {
+
+		users := []User{}
+		db.Find(&users) // Obtener todos los usuarios
 
 		c.HTML(200, "index.html", gin.H{
 			"title":       "Main website",
@@ -38,26 +65,37 @@ func main() {
 		})
 	})
 
-	//API URL
+	//API URL obtener usuarios
 	router.GET("/api/users", func(c *gin.Context) {
+		users := []User{}
+		db.Find(&users) // Obtener todos los usuarios
 		c.JSON(200, users)
 
 	})
 
+	//CREAR USUARIO
 	router.POST("/api/users", func(c *gin.Context) {
 		var user User
 		if c.BindJSON(&user) == nil {
-			user.Id = indexUser
-			users = append(users, user)
-			indexUser++
+			//user.Id = indexUser
+			//users = append(users, user)
+			//indexUser++
+
+			// Crear un nuevo usuario en la base de datos
+			result := db.Create(&user)
+			if result.Error != nil {
+				c.JSON(500, gin.H{"error": "Error al crear usuario"})
+				return
+			}
 			c.JSON(200, user)
+
 		} else {
 			c.JSON(400, gin.H{
 				"error": "Invalid payload",
 			})
 			return
 		}
-		c.JSON(200, user)
+
 	})
 
 	//ELIMINAR USUARIO
@@ -72,16 +110,16 @@ func main() {
 
 		}
 
-		fmt.Println("Id a borrar: ", id)
-		for i, user := range users {
-			if user.Id == idParsed {
-				users = append(users[:i], users[i+1:]...)
-				c.JSON(200, gin.H{
-					"message": "User deleted",
-				})
-				return
-			}
+		result := db.Delete(&User{}, idParsed)
+		if result.Error != nil {
+			c.JSON(500, gin.H{"error": "Error al eliminar usuario"})
+			return
 		}
+		c.JSON(200, gin.H{
+			"message": "User deleted",
+		})
+		return
+
 		c.JSON(201, gin.H{})
 
 	})
@@ -100,18 +138,37 @@ func main() {
 
 		var user User
 		if c.BindJSON(&user) == nil {
-			user.Id = indexUser
-			users = append(users, user)
-			indexUser++
-			c.JSON(200, user)
-		} else {
-			c.JSON(400, gin.H{
-				"error": "Invalid payload",
+			//mandando a buscar el usuario en la base de datos
+			//user.Id = indexUser
+			//users = append(users, user)
+			//indexUser++
+			var usuarioexistente User
+			result := db.First(&usuarioexistente, idParsed)
+			if result.Error != nil {
+				c.JSON(404, gin.H{
+					"error": "Usuario no encontrado",
+				})
+				return
+
+			}
+
+			//Se actualiza usuario
+			usuarioexistente.Name = user.Name
+			usuarioexistente.Email = user.Email
+			db.Save(&usuarioexistente)
+
+			c.JSON(200, gin.H{
+				"error": "Usuario actualizado",
 			})
-			return
+
+		} else {
+			c.JSON(400, gin.H{"error": "Invalid payload"})
+
 		}
 
-		fmt.Println("Id a actualizar: ", id)
+	})
+
+	/*fmt.Println("Id a actualizar: ", id)
 		for i, u := range users {
 			if u.Id == idParsed {
 				users[i] = user
@@ -123,7 +180,7 @@ func main() {
 		}
 
 		c.JSON(201, gin.H{})
-	})
+	})*/
 
 	router.Run(":8001") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
