@@ -17,7 +17,7 @@ type User struct {
 
 func main() {
 	router := gin.Default()
-	users := []User{}
+	users := []User{} //cambiar para usar base de
 	indexUser := 1
 
 	fmt.Println("Running App")
