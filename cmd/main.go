@@ -9,7 +9,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
-
+//se van a usar las estructuras db.Create, db.Find, db.Delete, db.Save
 // crear estructura
 type User struct {
 	Id    int    `json:"id"`
@@ -17,21 +17,21 @@ type User struct {
 	Email string `json:"email"`
 }
 
-// Definiendo variable para la base de datos
+// Definiendo variable para la base de datos para no crear otro documento
 var db *gorm.DB
 
 func main() {
 
 	//Creando conexion con tabla
 	dsn := "root:test@tcp(127.0.0.1:3306)/practica7?charset=utf8mb4&parseTime=True&loc=Local"
-	var err error
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	var err error //para ir guardando los errores
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}) //abriendo base de datos
 	if err != nil {
 		fmt.Println("Error al conectar a la base de datos:", err)
 		return
 	}
 
-	//creando tabla si no existe
+	//creando tabla si no existe usando la estructura existente User
 	db.AutoMigrate(&User{})
 
 	fmt.Println("Conexión exitosa y tabla creada o actualizada.")
