@@ -11,29 +11,11 @@ import (
 )
 
 // se van a usar las estructuras db.Create, db.Find, db.Delete, db.Save
-// Estructura para estudiantes
-type Estudiante struct {
-	StudentID int    `json:"student_id" gorm:"primaryKey"`
-	Name      string `json:"name"`
-	Group     string `json:"group"`
-	Email     string `json:"email"`
-}
-
-// crear Tabla Materia
-type Materia struct {
-	Id_subject int    `json:"id_subject"`
-	Name       string `json:"name"`
-	Email      string `json:"email"`
-}
-
-// Estructura para calificaciones
-type Calificacion struct {
-	GradeID   int        `json:"grade_id" gorm:"primaryKey"`
-	StudentID Estudiante `gorm:"foreignKey:Id_subject;references:Id_subject"` // Llave foránea que referencia a Student
-
-	SubjectID Materia `gorm:"foreignKey:StudentID;references:StudentID"` // Llave foránea que referencia a Student
-
-	Grade float64 `json:"grade"`
+// crear estructura
+type User struct {
+	Id    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 // Definiendo variable para la base de datos para no crear otro documento
@@ -42,7 +24,7 @@ var db *gorm.DB
 func main() {
 
 	//Creando conexion con tabla
-	dsn := "root:test@tcp(127.0.0.1:3306)/proyecto_1?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:test@tcp(127.0.0.1:3306)/practica7?charset=utf8mb4&parseTime=True&loc=Local"
 	var err error                                        //para ir guardando los errores
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{}) //abriendo base de datos
 	if err != nil {
@@ -50,12 +32,16 @@ func main() {
 		return
 	}
 
-	//creando tabla si no existe usando la estructura de las 3 tablas
-	db.AutoMigrate(&Estudiante{}, &Materia{}, &Calificacion{})
+	//creando tabla si no existe usando la estructura existente User
+	db.AutoMigrate(&User{})
 
 	fmt.Println("Conexión exitosa y tabla creada o actualizada.")
 
 	router := gin.Default()
+	//users := []User{} //cambiar para usar base de
+	//indexUser := 1
+
+	//fmt.Println("Running App")
 
 	//Tomar archivos de la carpeta template
 	router.LoadHTMLGlob("templates/*")
@@ -67,71 +53,42 @@ func main() {
 		})
 	})
 
-	//1. OBTENER MATERIAS
-	//1.1MATERIAS
+	//Entrando a la pagina
 	router.GET("/", func(c *gin.Context) {
 
-		materias := []Materia{}
-		db.Find(&materias)
+		users := []User{}
+		db.Find(&users) // Obtener todos los usuarios
 
 		c.HTML(200, "index.html", gin.H{
-			"title":          "Main website",
-			"total_materias": len(materias),
-			"materias":       materias,
+			"title":       "Main website",
+			"total_users": len(users),
+			"users":       users,
 		})
 	})
 
-	//API URL obtener materias
-	router.GET("/api/subjects", func(c *gin.Context) {
-		materias := []Materia{}
-		db.Find(&materias) // Obtener todos los usuarios
-		c.JSON(200, materias)
+	//API URL obtener usuarios
+	router.GET("/api/users", func(c *gin.Context) {
+		users := []User{}
+		db.Find(&users) // Obtener todos los usuarios
+		c.JSON(200, users)
 
 	})
 
-	//1.2 CALIFICACIONES
-
-	router.GET("/api/grades/:grade_id/student/:student_id", func(c *gin.Context) {
-		gradeID := c.Param("grade_id")
-		studentID := c.Param("student_id")
-		var calificacion Calificacion
-
-		// Buscar la calificación específica por grade_id y student_id
-		if err := db.Where("grade_id = ? AND student_id = ?", gradeID, studentID).First(&calificacion).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Calificación no encontrada para el estudiante"})
-			return
-		}
-
-		c.JSON(http.StatusOK, calificacion)
-	})
-
-	// Obtener todas las calificaciones de un estudiante
-	router.GET("/api/grades/student/:student_id", func(c *gin.Context) {
-		studentID := c.Param("student_id")
-		var calificacion []Calificacion
-
-		// Buscar todas las calificaciones de un estudiante
-		if err := db.Where("student_id = ?", studentID).Find(&calificacion).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "No se encontraron calificaciones para este estudiante"})
-			return
-		}
-
-		c.JSON(http.StatusOK, calificacion)
-	})
-
-	//2.CREAR
-	//2.1 CREAR MATERIA
-	router.POST("/api/subjects", func(c *gin.Context) {
-		var materia Materia
-		if c.BindJSON(&materia) == nil {
+	//CREAR USUARIO
+	router.POST("/api/users", func(c *gin.Context) {
+		var user User
+		if c.BindJSON(&user) == nil {
+			//user.Id = indexUser
+			//users = append(users, user)
+			//indexUser++
 
 			// Crear un nuevo usuario en la base de datos
-			result := db.Create(&materia)
+			result := db.Create(&user)
 			if result.Error != nil {
-				c.JSON(500, gin.H{"error": "Error al crear materia"})
+				c.JSON(500, gin.H{"error": "Error al crear usuario"})
 				return
 			}
-			c.JSON(200, materia)
+			c.JSON(200, user)
 
 		} else {
 			c.JSON(400, gin.H{
@@ -142,32 +99,9 @@ func main() {
 
 	})
 
-	//2.2 CREAR CALIFICACIÓN
-	router.POST("/api/grades", func(c *gin.Context) {
-		var calificacion Calificacion
-		if c.BindJSON(&calificacion) == nil {
-
-			// Crear un nuevo usuario en la base de datos
-			result := db.Create(&calificacion)
-			if result.Error != nil {
-				c.JSON(500, gin.H{"error": "Error al crear nueva califacion"})
-				return
-			}
-			c.JSON(200, calificacion)
-
-		} else {
-			c.JSON(400, gin.H{
-				"error": "Invalid payload",
-			})
-			return
-		}
-
-	})
-
-	//3. ELIMINAR
-	//3.1 ELIMINAR MATERIA
-	router.DELETE("/api/subjects:id", func(c *gin.Context) {
-		id := c.Param("student_id")
+	//ELIMINAR USUARIO
+	router.DELETE("/api/users/:id", func(c *gin.Context) {
+		id := c.Param("id")
 		idParsed, err := strconv.Atoi(id)
 		if err != nil {
 			c.JSON(400, gin.H{
@@ -177,22 +111,23 @@ func main() {
 
 		}
 
-		result := db.Delete(&Materia{}, idParsed)
+		result := db.Delete(&User{}, idParsed)
 		if result.Error != nil {
-			c.JSON(500, gin.H{"error": "Error al eliminar Materia"})
+			c.JSON(500, gin.H{"error": "Error al eliminar usuario"})
 			return
 		}
 		c.JSON(200, gin.H{
-			"message": "Materia eliminada",
+			"message": "User deleted",
 		})
+		return
 
-		//c.JSON(201, gin.H{})
+		c.JSON(201, gin.H{})
 
 	})
 
-	//3.2 ELIMINAR CALIFICACION
-	router.DELETE("/api/grades/:grade_id", func(c *gin.Context) {
-		id := c.Param("grade_id")
+	//ACTUALIZAR
+	router.PUT("/api/users/:id", func(c *gin.Context) {
+		id := c.Param("id")
 		idParsed, err := strconv.Atoi(id)
 		if err != nil {
 			c.JSON(400, gin.H{
@@ -202,50 +137,29 @@ func main() {
 
 		}
 
-		result := db.Delete(&Materia{}, idParsed)
-		if result.Error != nil {
-			c.JSON(500, gin.H{"error": "Error al eliminar Materia"})
-			return
-		}
-		c.JSON(200, gin.H{
-			"message": "Materia eliminada",
-		})
-
-	})
-
-	//3.ACTUALIZAR
-	//3.1 ACTUALIZAR MATERIAS
-	router.PUT("/api/subjects:id", func(c *gin.Context) {
-		id := c.Param("student_id")
-		idParsed, err := strconv.Atoi(id)
-		if err != nil {
-			c.JSON(400, gin.H{
-				"error": "Invalid id",
-			})
-			return
-
-		}
-
-		var materia Materia
-		if c.BindJSON(&materia) == nil {
-
-			var materiaexistente Materia
-			result := db.First(&materiaexistente, idParsed)
+		var user User
+		if c.BindJSON(&user) == nil {
+			//mandando a buscar el usuario en la base de datos
+			//user.Id = indexUser
+			//users = append(users, user)
+			//indexUser++
+			var usuarioexistente User
+			result := db.First(&usuarioexistente, idParsed)
 			if result.Error != nil {
 				c.JSON(404, gin.H{
-					"error": "Materia no encontrada",
+					"error": "Usuario no encontrado",
 				})
 				return
 
 			}
 
-			//Se actualiza materia
-			materiaexistente.Name = materia.Name
-
-			db.Save(&materiaexistente)
+			//Se actualiza usuario
+			usuarioexistente.Name = user.Name
+			usuarioexistente.Email = user.Email
+			db.Save(&usuarioexistente)
 
 			c.JSON(200, gin.H{
-				"message": "Materia actualizada",
+				"error": "Usuario actualizado",
 			})
 
 		} else {
@@ -255,46 +169,19 @@ func main() {
 
 	})
 
-	//3.2 ACTUALIZAR CALIFICACIONES
-	router.PUT("/api/grades/:grade_id", func(c *gin.Context) {
-		id := c.Param("grade_id")
-		idParsed, err := strconv.Atoi(id)
-		if err != nil {
-			c.JSON(400, gin.H{
-				"error": "Invalid id",
-			})
-			return
-
-		}
-
-		var calificacion Calificacion
-		if c.BindJSON(&calificacion) == nil {
-
-			var calificaionexistente Calificacion
-			result := db.First(&calificaionexistente, idParsed)
-			if result.Error != nil {
-				c.JSON(404, gin.H{
-					"error": "Calificaion no encontrada",
-				})
+	/*fmt.Println("Id a actualizar: ", id)
+		for i, u := range users {
+			if u.Id == idParsed {
+				users[i] = user
+				users[i].Id = idParsed
+				c.JSON(200, users[i])
 				return
 
 			}
-
-			//Se actualiza materia
-			calificaionexistente.Grade = calificacion.Grade
-
-			db.Save(&calificaionexistente)
-
-			c.JSON(200, gin.H{
-				"message": "Calificación actualizada",
-			})
-
-		} else {
-			c.JSON(400, gin.H{"error": "Invalid payload"})
-
 		}
 
-	})
+		c.JSON(201, gin.H{})
+	})*/
 
 	router.Run(":8001") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
