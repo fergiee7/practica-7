@@ -8,10 +8,10 @@
 </head>
 <body>
     <h1>Hola Mundo, desde servidor de GO </h1>
-    <h3>Total de usuarios registrados {{ .total_users }}</h3>
+    <h3>Total de materias registradas {{ .total_materias }}</h3>
     <ul> 
-        {{range.users}}
-        <li>{{ .Name }} - {{ .Email }} </li>
+        {{range.materias}}
+        <li>{{ .Name }}</li>
         {{ end }}
     </ul>
     
